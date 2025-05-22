@@ -6,6 +6,29 @@ Sistema de gerenciamento de produtos, pedidos e cupons de desconto.
 
 Desenvolvido por [Miguel Amoedo](https://www.linkedin.com/in/miguel-amoedo/)
 
+## Estrutura do Banco de Dados
+
+O banco de dados pode ser criado de duas formas:
+
+### 1. Usando Migrations (Recomendado)
+```bash
+php artisan migrate
+```
+
+### 2. Usando SQL Diretamente
+O arquivo `database/schema.sql` contém todo o SQL necessário para criar o banco de dados. Você pode executá-lo diretamente no MySQL:
+
+```bash
+mysql -u seu_usuario -p < database/schema.sql
+```
+
+O schema inclui as seguintes tabelas:
+- `produtos`: Cadastro de produtos
+- `variacoes`: Variações de produtos (tamanhos, cores, etc)
+- `cupons`: Cupons de desconto
+- `pedidos`: Pedidos realizados
+- `pedido_items`: Itens de cada pedido
+
 ## Requisitos
 
 ### Com Docker
@@ -149,13 +172,11 @@ docker-compose exec app composer [comando]
 
 ### Sem Docker
 ```bash
-
-# Executar migrações
-php artisan migrate
-
 # Iniciar servidor
 php artisan serve
 
+# Executar migrações
+php artisan migrate
 
 # Limpar cache
 php artisan cache:clear
@@ -163,6 +184,8 @@ php artisan config:clear
 php artisan route:clear
 php artisan view:clear
 
+# Compilar assets
+npm run dev
 ```
 
 ## Funcionalidades
@@ -176,8 +199,15 @@ php artisan view:clear
 
 ## Configuração de E-mail
 
-O sistema usa o Mailtrap para envio de e-mails em ambiente de desenvolvimento.
+O sistema usa o Mailtrap para envio de e-mails em ambiente de desenvolvimento. Configure as credenciais no arquivo `.env`:
 
-
-
-
+```
+MAIL_MAILER=smtp
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=seu_username
+MAIL_PASSWORD=sua_senha
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@exemplo.com"
+MAIL_FROM_NAME="${APP_NAME}"
+```
