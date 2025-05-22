@@ -241,32 +241,42 @@ function calcularFrete(subtotal) {
 
 // Aplicar cupom
 function aplicarCupom() {
-    const codigo = document.getElementById('cupom').value;
-    fetch(`/api/cupons/validar/${codigo}`, {
+    const codigo = document.getElementById('cupom').value.trim();
+    
+    if (!codigo) {
+        toastr.warning('Por favor, digite um código de cupom');
+        return;
+    }
+
+    fetch(`/api/cupons/validar/${encodeURIComponent(codigo)}`, {
+        method: 'GET',
         headers: {
             'Accept': 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     })
-    .then(res => res.json())
     .then(res => {
-        if (res.error) {
-            toastr.error(res.error);
+        if (!res.ok) {
+            return res.json().then(err => {
+                throw new Error(err.error || 'Erro ao validar cupom');
+            });
+        }
+        return res.json();
+    })
+    .then(res => {
+        const subtotal = carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+        if (subtotal >= parseFloat(res.valor_minimo)) {
+            const desconto = parseFloat(res.desconto);
+            document.getElementById('desconto').textContent = `R$ ${desconto.toFixed(2)}`;
+            atualizarResumo();
+            toastr.success('Cupom aplicado com sucesso!');
         } else {
-            const subtotal = carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-            if (subtotal >= parseFloat(res.valor_minimo)) {
-                const desconto = parseFloat(res.desconto);
-                document.getElementById('desconto').textContent = `R$ ${desconto.toFixed(2)}`;
-                atualizarResumo();
-                toastr.success('Cupom aplicado com sucesso!');
-            } else {
-                toastr.warning(`Valor mínimo para este cupom: R$ ${parseFloat(res.valor_minimo).toFixed(2)}`);
-            }
+            toastr.warning(`Valor mínimo para este cupom: R$ ${parseFloat(res.valor_minimo).toFixed(2)}`);
         }
     })
     .catch(error => {
         console.error('Erro:', error);
-        toastr.error('Erro ao validar cupom');
+        toastr.error(error.message || 'Erro ao validar cupom');
     });
 }
 
