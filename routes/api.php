@@ -34,6 +34,7 @@ Route::get('/pedidos', [PedidoController::class, 'index']);
 Route::post('/pedidos', [PedidoController::class, 'store']);
 Route::get('/pedidos/{id}', [PedidoController::class, 'show']);
 Route::delete('/pedidos/{id}', [PedidoController::class, 'destroy']);
+Route::put('/pedidos/{id}/status', [PedidoController::class, 'atualizarStatus']);
 
 // Rotas de Cupons
 Route::get('/cupons', [CupomController::class, 'index']);

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\GerenciadorEstoque;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Variacao extends Model
 {
-    use HasFactory;
+    use HasFactory, GerenciadorEstoque;
+
+    protected $table = 'variacoes';
 
     protected $fillable = [
         'produto_id',

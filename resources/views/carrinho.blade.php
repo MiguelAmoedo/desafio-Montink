@@ -2,6 +2,10 @@
 
 @section('title', 'Carrinho')
 
+@push('styles')
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css" rel="stylesheet">
+@endpush
+
 @section('content')
 <div class="row">
     <div class="col-md-8">
@@ -70,6 +74,7 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
 <script>
 let carrinho = [];
 let endereco = null;
@@ -172,8 +177,9 @@ function atualizarCarrinho() {
                         <div class="input-group">
                             <button class="btn btn-outline-secondary" type="button" onclick="alterarQuantidade(${index}, -1)">-</button>
                             <input type="number" class="form-control text-center" value="${item.quantidade}" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="alterarQuantidade(${index}, 1)">+</button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="alterarQuantidade(${index}, 1)" data-estoque="${item.estoque}">+</button>
                         </div>
+                        <small class="text-muted">Estoque disponível: ${item.estoque}</small>
                         <button class="btn btn-danger btn-sm mt-2 w-100" onclick="removerItem(${index})">Remover</button>
                     </div>
                 </div>
@@ -188,11 +194,25 @@ function atualizarCarrinho() {
 
 // Alterar quantidade
 function alterarQuantidade(index, delta) {
-    const novaQuantidade = carrinho[index].quantidade + delta;
-    if (novaQuantidade > 0) {
-        carrinho[index].quantidade = novaQuantidade;
-        atualizarCarrinho();
+    const item = carrinho[index];
+    const novoValor = item.quantidade + delta;
+    const estoqueDisponivel = item.estoque;
+
+    if (novoValor < 1) {
+        return;
     }
+
+    if (novoValor > estoqueDisponivel) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Estoque insuficiente',
+            text: `Só temos ${estoqueDisponivel} unidades disponíveis deste produto.`
+        });
+        return;
+    }
+
+    item.quantidade = novoValor;
+    atualizarCarrinho();
 }
 
 // Remover item
@@ -256,20 +276,41 @@ function finalizarPedido() {
     const loadingSpinner = document.getElementById('loadingSpinner');
     const btnText = document.getElementById('btnText');
 
-    // Prevenir duplo clique
     if (btnFinalizar.disabled) return;
 
     if (carrinho.length === 0) {
-        toastr.warning('Adicione itens ao carrinho primeiro!');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Carrinho vazio',
+            text: 'Adicione itens ao carrinho primeiro!'
+        });
         return;
     }
 
-    if (!endereco) {
-        toastr.warning('Por favor, informe o CEP para calcular o frete');
+    if (!endereco || !endereco.cep || !endereco.logradouro || !endereco.bairro || !endereco.cidade || !endereco.uf || endereco.uf.length !== 2) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Endereço incompleto',
+            text: 'Por favor, consulte o CEP e preencha todos os campos do endereço corretamente.'
+        });
         return;
     }
 
-    // Desabilitar botão e mostrar loading
+    // Validar produtos antes de enviar
+    const produtosInvalidos = carrinho.filter(item => !item.id || isNaN(item.id));
+    if (produtosInvalidos.length > 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro no carrinho',
+            text: 'Existem produtos inválidos no carrinho. Por favor, limpe o carrinho e adicione os produtos novamente.'
+        }).then(() => {
+            carrinho = [];
+            localStorage.removeItem('carrinho');
+            atualizarCarrinho();
+        });
+        return;
+    }
+
     btnFinalizar.disabled = true;
     loadingSpinner.classList.remove('d-none');
     btnText.textContent = 'Processando...';
@@ -277,22 +318,24 @@ function finalizarPedido() {
     const cupom = document.getElementById('cupom').value;
     const data = {
         produtos: carrinho.map(item => ({
-            id: item.id,
-            quantidade: item.quantidade
+            id: parseInt(item.id),
+            quantidade: parseInt(item.quantidade),
+            variacao_id: item.variacao_id ? parseInt(item.variacao_id) : null
         })),
-        cupom: cupom || null,
         endereco: {
             cep: endereco.cep,
             logradouro: endereco.logradouro,
             bairro: endereco.bairro,
             cidade: endereco.cidade,
-            uf: endereco.uf
-        }
+            uf: endereco.uf.toUpperCase().slice(0,2)
+        },
+        cupom: (cupom && cupom.trim() !== '') ? cupom.trim() : null
     };
 
-    // Usar AbortController para timeout
+    console.log('Enviando pedido:', data);
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     fetch('/api/pedidos', {
         method: 'POST',
@@ -307,25 +350,39 @@ function finalizarPedido() {
     .then(res => {
         clearTimeout(timeoutId);
         if (!res.ok) {
-            throw new Error('Erro na requisição');
+            return res.json().then(err => {
+                let msg = err.error || err.message || 'Erro na requisição';
+                if (err.errors) {
+                    msg += '\n';
+                    for (const campo in err.errors) {
+                        msg += `- ${campo}: ${err.errors[campo].join(', ')}\n`;
+                    }
+                }
+                throw new Error(msg);
+            });
         }
         return res.json();
     })
     .then(res => {
-        if (res.error) {
-            throw new Error(res.error);
-        }
-        toastr.success('Pedido realizado com sucesso!');
-        carrinho = [];
-        localStorage.removeItem('carrinho');
-        window.location.href = '/pedidos';
+        Swal.fire({
+            icon: 'success',
+            title: 'Pedido realizado com sucesso!',
+            text: 'Você será redirecionado para a página de pedidos.'
+        }).then(() => {
+            carrinho = [];
+            localStorage.removeItem('carrinho');
+            window.location.href = '/pedidos';
+        });
     })
     .catch(error => {
         console.error('Erro:', error);
-        toastr.error(error.message || 'Erro ao finalizar pedido');
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro ao finalizar pedido',
+            text: error.message || 'Ocorreu um erro ao processar seu pedido. Tente novamente.'
+        });
     })
     .finally(() => {
-        // Restaurar botão
         btnFinalizar.disabled = false;
         loadingSpinner.classList.add('d-none');
         btnText.textContent = 'Finalizar Pedido';
@@ -336,5 +393,41 @@ function finalizarPedido() {
 document.addEventListener('DOMContentLoaded', function() {
     carregarCarrinho();
 });
+
+function adicionarAoCarrinho(produto) {
+    const index = carrinho.findIndex(item => item.id === parseInt(produto.id));
+    
+    if (index === -1) {
+        if (produto.estoque < 1) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Produto sem estoque',
+                text: 'Este produto não está disponível no momento.'
+            });
+            return;
+        }
+        
+        carrinho.push({
+            id: parseInt(produto.id),
+            nome: produto.nome,
+            preco: parseFloat(produto.preco),
+            quantidade: 1,
+            estoque: parseInt(produto.estoque),
+            variacao_id: produto.variacao_id ? parseInt(produto.variacao_id) : null
+        });
+    } else {
+        if (carrinho[index].quantidade >= produto.estoque) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Estoque insuficiente',
+                text: `Só temos ${produto.estoque} unidades disponíveis deste produto.`
+            });
+            return;
+        }
+        carrinho[index].quantidade++;
+    }
+    
+    atualizarCarrinho();
+}
 </script>
 @endpush 

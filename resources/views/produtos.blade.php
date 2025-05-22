@@ -31,25 +31,30 @@
                     </label>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary">Salvar Produto</button>
+            <button type="submit" class="btn btn-primary" id="btn-salvar">
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loading-spinner"></span>
+                <span id="btn-text">Salvar Produto</span>
+            </button>
         </form>
     </div>
     <div class="col-md-6">
         <h3>Produtos Cadastrados</h3>
-        <table class="table table-bordered" id="tabela-produtos">
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Preço</th>
-                    <th>Estoque</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Produtos serão carregados via JS -->
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-bordered" id="tabela-produtos">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Preço</th>
+                        <th>Estoque</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Produtos serão carregados via JS -->
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -73,6 +78,10 @@
                         <input type="number" step="0.01" class="form-control" id="edit-preco" required>
                     </div>
                     <div class="mb-3">
+                        <label for="edit-estoque" class="form-label">Estoque</label>
+                        <input type="number" class="form-control" id="edit-estoque" required min="0">
+                    </div>
+                    <div class="mb-3">
                         <label for="edit-descricao" class="form-label">Descrição</label>
                         <textarea class="form-control" id="edit-descricao" rows="3" required></textarea>
                     </div>
@@ -88,7 +97,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="salvarEdicao()">Salvar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarEdicao()" id="btn-salvar-edicao">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loading-spinner-edicao"></span>
+                    <span id="btn-text-edicao">Salvar</span>
+                </button>
             </div>
         </div>
     </div>
@@ -98,52 +110,92 @@
 
 @push('scripts')
 <script>
+let isLoading = false;
+
+// Função para mostrar/esconder loading
+function toggleLoading(show, buttonId, spinnerId, textId) {
+    const button = document.getElementById(buttonId);
+    const spinner = document.getElementById(spinnerId);
+    const text = document.getElementById(textId);
+    
+    if (show) {
+        spinner.classList.remove('d-none');
+        text.textContent = 'Salvando...';
+        button.disabled = true;
+    } else {
+        spinner.classList.add('d-none');
+        text.textContent = buttonId === 'btn-salvar' ? 'Salvar Produto' : 'Salvar';
+        button.disabled = false;
+    }
+}
+
 // Carregar produtos
-function carregarProdutos() {
-    fetch('/api/produtos', {
-        headers: {
-            'Accept': 'application/json'
-        }
-    })
-        .then(res => res.json())
-        .then(produtos => {
-            let html = '';
-            produtos.forEach(produto => {
-                html += `<tr>
-                    <td>${produto.nome}</td>
-                    <td>R$ ${produto.preco}</td>
-                    <td>${produto.estoque}</td>
-                    <td>${produto.ativo ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}</td>
-                    <td>
-                        <button class="btn btn-success btn-sm" onclick="adicionarAoCarrinho(${produto.id}, '${produto.nome}', ${produto.preco})">
-                            <i class="bi bi-cart-plus"></i>
-                        </button>
-                        <button class="btn btn-info btn-sm" onclick="editarProduto(${produto.id})">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="excluirProduto(${produto.id})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>`;
-            });
-            document.querySelector('#tabela-produtos tbody').innerHTML = html;
+async function carregarProdutos() {
+    try {
+        const response = await fetch('/api/produtos', {
+            headers: {
+                'Accept': 'application/json'
+            }
         });
+        const produtos = await response.json();
+        
+        let html = '';
+        produtos.forEach(produto => {
+            html += `<tr>
+                <td>${produto.nome}</td>
+                <td>R$ ${produto.preco}</td>
+                <td>${produto.estoque}</td>
+                <td>${produto.ativo ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}</td>
+                <td>
+                    <button class="btn btn-success btn-sm" onclick="adicionarAoCarrinho(${produto.id}, '${produto.nome}', ${produto.preco}, ${produto.estoque})">
+                        <i class="bi bi-cart-plus"></i>
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="editarProduto(${produto.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="excluirProduto(${produto.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        document.querySelector('#tabela-produtos tbody').innerHTML = html;
+    } catch (error) {
+        console.error('Erro:', error);
+        toastr.error('Erro ao carregar produtos');
+    }
 }
 
 // Adicionar ao carrinho
-function adicionarAoCarrinho(id, nome, preco) {
+function adicionarAoCarrinho(id, nome, preco, estoque) {
     let carrinho = JSON.parse(localStorage.getItem('carrinho') || '[]');
     const item = carrinho.find(i => i.id === id);
     
     if (item) {
+        if (item.quantidade >= estoque) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Estoque insuficiente',
+                text: `Só temos ${estoque} unidades disponíveis deste produto.`
+            });
+            return;
+        }
         item.quantidade++;
     } else {
+        if (estoque < 1) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Produto sem estoque',
+                text: 'Este produto não está disponível no momento.'
+            });
+            return;
+        }
         carrinho.push({
-            id,
-            nome,
-            preco,
-            quantidade: 1
+            id: id,
+            nome: nome,
+            preco: preco,
+            quantidade: 1,
+            estoque: estoque
         });
     }
     
@@ -165,116 +217,140 @@ function atualizarContadorCarrinho() {
 
 // Submeter formulário de produto
 const formProduto = document.getElementById('form-produto');
-formProduto.addEventListener('submit', function(e) {
+formProduto.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const data = {
-        nome: formProduto.nome.value,
-        preco: formProduto.preco.value,
-        estoque: formProduto.estoque.value,
-        descricao: formProduto.descricao.value,
-        ativo: formProduto.ativo.checked
-    };
+    
+    if (isLoading) return;
+    isLoading = true;
+    toggleLoading(true, 'btn-salvar', 'loading-spinner', 'btn-text');
 
-    fetch('/api/produtos', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(res => {
-        if (res.error) {
-            toastr.error(res.error);
+    try {
+        const data = {
+            nome: formProduto.nome.value,
+            preco: formProduto.preco.value,
+            estoque: formProduto.estoque.value,
+            descricao: formProduto.descricao.value,
+            ativo: formProduto.ativo.checked
+        };
+
+        const response = await fetch('/api/produtos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+            toastr.error(result.error);
         } else {
             toastr.success('Produto cadastrado com sucesso!');
             formProduto.reset();
-            carregarProdutos();
+            await carregarProdutos();
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Erro:', error);
         toastr.error('Erro ao cadastrar produto');
-    });
+    } finally {
+        isLoading = false;
+        toggleLoading(false, 'btn-salvar', 'loading-spinner', 'btn-text');
+    }
 });
 
 // Editar produto
-function editarProduto(id) {
-    fetch(`/api/produtos/${id}`, {
-        headers: {
-            'Accept': 'application/json'
-        }
-    })
-        .then(res => res.json())
-        .then(produto => {
-            document.getElementById('edit-id').value = produto.id;
-            document.getElementById('edit-nome').value = produto.nome;
-            document.getElementById('edit-preco').value = produto.preco;
-            document.getElementById('edit-descricao').value = produto.descricao;
-            document.getElementById('edit-ativo').checked = produto.ativo;
-            new bootstrap.Modal(document.getElementById('modal-edicao')).show();
+async function editarProduto(id) {
+    try {
+        const response = await fetch(`/api/produtos/${id}`, {
+            headers: {
+                'Accept': 'application/json'
+            }
         });
+        const produto = await response.json();
+        
+        document.getElementById('edit-id').value = produto.id;
+        document.getElementById('edit-nome').value = produto.nome;
+        document.getElementById('edit-preco').value = produto.preco;
+        document.getElementById('edit-estoque').value = produto.estoque;
+        document.getElementById('edit-descricao').value = produto.descricao;
+        document.getElementById('edit-ativo').checked = produto.ativo;
+        
+        new bootstrap.Modal(document.getElementById('modal-edicao')).show();
+    } catch (error) {
+        console.error('Erro:', error);
+        toastr.error('Erro ao carregar dados do produto');
+    }
 }
 
 // Salvar edição
-function salvarEdicao() {
-    const id = document.getElementById('edit-id').value;
-    const data = {
-        nome: document.getElementById('edit-nome').value,
-        preco: document.getElementById('edit-preco').value,
-        descricao: document.getElementById('edit-descricao').value,
-        ativo: document.getElementById('edit-ativo').checked
-    };
+async function salvarEdicao() {
+    if (isLoading) return;
+    isLoading = true;
+    toggleLoading(true, 'btn-salvar-edicao', 'loading-spinner-edicao', 'btn-text-edicao');
 
-    fetch(`/api/produtos/${id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(res => {
-        if (res.error) {
-            toastr.error(res.error);
+    try {
+        const id = document.getElementById('edit-id').value;
+        const data = {
+            nome: document.getElementById('edit-nome').value,
+            preco: document.getElementById('edit-preco').value,
+            estoque: document.getElementById('edit-estoque').value,
+            descricao: document.getElementById('edit-descricao').value,
+            ativo: document.getElementById('edit-ativo').checked
+        };
+
+        const response = await fetch(`/api/produtos/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+            toastr.error(result.error);
         } else {
             toastr.success('Produto atualizado com sucesso!');
             bootstrap.Modal.getInstance(document.getElementById('modal-edicao')).hide();
-            carregarProdutos();
+            await carregarProdutos();
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Erro:', error);
         toastr.error('Erro ao atualizar produto');
-    });
+    } finally {
+        isLoading = false;
+        toggleLoading(false, 'btn-salvar-edicao', 'loading-spinner-edicao', 'btn-text-edicao');
+    }
 }
 
 // Excluir produto
-function excluirProduto(id) {
+async function excluirProduto(id) {
     if (confirm('Tem certeza que deseja excluir este produto?')) {
-        fetch(`/api/produtos/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-        .then(res => {
-            if (res.ok) {
+        try {
+            const response = await fetch(`/api/produtos/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            });
+
+            if (response.ok) {
                 toastr.success('Produto excluído com sucesso!');
-                carregarProdutos();
+                await carregarProdutos();
             } else {
                 toastr.error('Erro ao excluir produto');
             }
-        })
-        .catch(error => {
+        } catch (error) {
             console.error('Erro:', error);
             toastr.error('Erro ao excluir produto');
-        });
+        }
     }
 }
 

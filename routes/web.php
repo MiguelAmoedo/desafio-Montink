@@ -26,8 +26,8 @@ Route::get('/cupons', function () {
 });
 
 Route::get('/pedidos', function () {
-    return view('pedidos');
-});
+    return view('pedidos.index');
+})->name('pedidos.index');
 
 Route::get('/carrinho', function () {
     return view('carrinho');

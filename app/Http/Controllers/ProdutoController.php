@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Mail\ProdutoNotificacao;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class ProdutoController extends Controller
 {
@@ -18,7 +19,9 @@ class ProdutoController extends Controller
      */
     public function index()
     {
-        return Produto::all();
+        return Produto::select('id', 'nome', 'preco', 'estoque', 'ativo', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 
     /**
@@ -55,43 +58,47 @@ class ProdutoController extends Controller
             $produto = Produto::create($request->except('variacoes'));
 
             if ($request->has('variacoes')) {
-                foreach ($request->variacoes as $variacao) {
-                    $produto->variacoes()->create($variacao);
-                }
+                $variacoes = collect($request->variacoes)->map(function ($variacao) {
+                    return new Variacao($variacao);
+                });
+                $produto->variacoes()->saveMany($variacoes);
             }
 
             DB::commit();
 
-            // Enviar e-mail de notificação
-            try {
-                config([
-                    'mail.default' => 'smtp',
-                    'mail.mailers.smtp' => [
-                        'transport' => 'smtp',
-                        'host' => config('mailtrap.host'),
-                        'port' => config('mailtrap.port'),
-                        'encryption' => config('mailtrap.encryption'),
-                        'username' => config('mailtrap.username'),
-                        'password' => config('mailtrap.password'),
-                        'timeout' => null,
-                        'local_domain' => env('MAIL_EHLO_DOMAIN'),
-                    ],
-                    'mail.from' => [
-                        'address' => config('mailtrap.from.address'),
-                        'name' => config('mailtrap.from.name'),
-                    ],
-                ]);
+            // Enviar e-mail de notificação em background
+            dispatch(function() use ($produto) {
+                try {
+                    config([
+                        'mail.default' => 'smtp',
+                        'mail.mailers.smtp' => [
+                            'transport' => 'smtp',
+                            'host' => config('mailtrap.host'),
+                            'port' => config('mailtrap.port'),
+                            'encryption' => config('mailtrap.encryption'),
+                            'username' => config('mailtrap.username'),
+                            'password' => config('mailtrap.password'),
+                            'timeout' => null,
+                            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+                        ],
+                        'mail.from' => [
+                            'address' => config('mailtrap.from.address'),
+                            'name' => config('mailtrap.from.name'),
+                        ],
+                    ]);
 
-                Mail::to('miguelbombs@gmail.com')->send(new ProdutoNotificacao($produto, 'criado'));
-                \Log::info('E-mail de notificação enviado para o produto: ' . $produto->nome);
-            } catch (\Exception $e) {
-                \Log::error('Erro ao enviar e-mail: ' . $e->getMessage());
-            }
+                    Mail::to('miguelbombs@gmail.com')->send(new ProdutoNotificacao($produto, 'criado'));
+                    Log::info('E-mail de notificação enviado para o produto: ' . $produto->nome);
+                } catch (\Exception $e) {
+                    Log::error('Erro ao enviar e-mail: ' . $e->getMessage());
+                }
+            })->afterResponse();
 
             return response()->json($produto->load('variacoes'), 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 400);
+            Log::error('Erro ao criar produto: ' . $e->getMessage());
+            return response()->json(['error' => 'Erro ao criar produto'], 400);
         }
     }
 
@@ -103,8 +110,7 @@ class ProdutoController extends Controller
      */
     public function show($id)
     {
-        $produto = Produto::findOrFail($id);
-        return $produto;
+        return Produto::with('variacoes')->findOrFail($id);
     }
 
     /**
@@ -145,43 +151,47 @@ class ProdutoController extends Controller
 
             if ($request->has('variacoes')) {
                 $produto->variacoes()->delete();
-                foreach ($request->variacoes as $variacao) {
-                    $produto->variacoes()->create($variacao);
-                }
+                $variacoes = collect($request->variacoes)->map(function ($variacao) {
+                    return new Variacao($variacao);
+                });
+                $produto->variacoes()->saveMany($variacoes);
             }
 
             DB::commit();
 
-            // Enviar e-mail de notificação
-            try {
-                config([
-                    'mail.default' => 'smtp',
-                    'mail.mailers.smtp' => [
-                        'transport' => 'smtp',
-                        'host' => config('mailtrap.host'),
-                        'port' => config('mailtrap.port'),
-                        'encryption' => config('mailtrap.encryption'),
-                        'username' => config('mailtrap.username'),
-                        'password' => config('mailtrap.password'),
-                        'timeout' => null,
-                        'local_domain' => env('MAIL_EHLO_DOMAIN'),
-                    ],
-                    'mail.from' => [
-                        'address' => config('mailtrap.from.address'),
-                        'name' => config('mailtrap.from.name'),
-                    ],
-                ]);
+            // Enviar e-mail de notificação em background
+            dispatch(function() use ($produto) {
+                try {
+                    config([
+                        'mail.default' => 'smtp',
+                        'mail.mailers.smtp' => [
+                            'transport' => 'smtp',
+                            'host' => config('mailtrap.host'),
+                            'port' => config('mailtrap.port'),
+                            'encryption' => config('mailtrap.encryption'),
+                            'username' => config('mailtrap.username'),
+                            'password' => config('mailtrap.password'),
+                            'timeout' => null,
+                            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+                        ],
+                        'mail.from' => [
+                            'address' => config('mailtrap.from.address'),
+                            'name' => config('mailtrap.from.name'),
+                        ],
+                    ]);
 
-                Mail::to('miguelbombs@gmail.com')->send(new ProdutoNotificacao($produto, 'atualizado'));
-                \Log::info('E-mail de notificação enviado para o produto: ' . $produto->nome);
-            } catch (\Exception $e) {
-                \Log::error('Erro ao enviar e-mail: ' . $e->getMessage());
-            }
+                    Mail::to('miguelbombs@gmail.com')->send(new ProdutoNotificacao($produto, 'atualizado'));
+                    Log::info('E-mail de notificação enviado para o produto: ' . $produto->nome);
+                } catch (\Exception $e) {
+                    Log::error('Erro ao enviar e-mail: ' . $e->getMessage());
+                }
+            })->afterResponse();
 
             return response()->json($produto->load('variacoes'));
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 400);
+            Log::error('Erro ao atualizar produto: ' . $e->getMessage());
+            return response()->json(['error' => 'Erro ao atualizar produto'], 400);
         }
     }
 
@@ -196,36 +206,39 @@ class ProdutoController extends Controller
         try {
             $produto = Produto::findOrFail($id);
             
-            // Enviar e-mail de notificação antes de excluir
-            try {
-                config([
-                    'mail.default' => 'smtp',
-                    'mail.mailers.smtp' => [
-                        'transport' => 'smtp',
-                        'host' => config('mailtrap.host'),
-                        'port' => config('mailtrap.port'),
-                        'encryption' => config('mailtrap.encryption'),
-                        'username' => config('mailtrap.username'),
-                        'password' => config('mailtrap.password'),
-                        'timeout' => null,
-                        'local_domain' => env('MAIL_EHLO_DOMAIN'),
-                    ],
-                    'mail.from' => [
-                        'address' => config('mailtrap.from.address'),
-                        'name' => config('mailtrap.from.name'),
-                    ],
-                ]);
+            // Enviar e-mail de notificação em background
+            dispatch(function() use ($produto) {
+                try {
+                    config([
+                        'mail.default' => 'smtp',
+                        'mail.mailers.smtp' => [
+                            'transport' => 'smtp',
+                            'host' => config('mailtrap.host'),
+                            'port' => config('mailtrap.port'),
+                            'encryption' => config('mailtrap.encryption'),
+                            'username' => config('mailtrap.username'),
+                            'password' => config('mailtrap.password'),
+                            'timeout' => null,
+                            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+                        ],
+                        'mail.from' => [
+                            'address' => config('mailtrap.from.address'),
+                            'name' => config('mailtrap.from.name'),
+                        ],
+                    ]);
 
-                Mail::to('miguelbombs@gmail.com')->send(new ProdutoNotificacao($produto, 'excluido'));
-                \Log::info('E-mail de notificação enviado para o produto: ' . $produto->nome);
-            } catch (\Exception $e) {
-                \Log::error('Erro ao enviar e-mail: ' . $e->getMessage());
-            }
+                    Mail::to('miguelbombs@gmail.com')->send(new ProdutoNotificacao($produto, 'excluido'));
+                    Log::info('E-mail de notificação enviado para o produto: ' . $produto->nome);
+                } catch (\Exception $e) {
+                    Log::error('Erro ao enviar e-mail: ' . $e->getMessage());
+                }
+            })->afterResponse();
 
             $produto->delete();
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
+            Log::error('Erro ao excluir produto: ' . $e->getMessage());
+            return response()->json(['error' => 'Erro ao excluir produto'], 400);
         }
     }
 

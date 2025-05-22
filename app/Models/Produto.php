@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\GerenciadorEstoque;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Produto extends Model
 {
-    use HasFactory;
+    use HasFactory, GerenciadorEstoque;
 
     protected $fillable = [
         'nome',

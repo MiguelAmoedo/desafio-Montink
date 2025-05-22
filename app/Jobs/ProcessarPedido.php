@@ -44,7 +44,7 @@ class ProcessarPedido implements ShouldQueue
             // Simula um processamento demorado
             sleep(2);
 
-            $this->pedido->update(['status' => 'aprovado']);
+            // Removida a alteração automática do status
         } catch (\Exception $e) {
             Log::error('Erro ao processar pedido: ' . $e->getMessage());
             throw $e;
