@@ -85,8 +85,8 @@ O sistema já estará configurado com:
 
 1. Clone o repositório:
 ```bash
-git clone [URL_DO_REPOSITORIO]
-cd [NOME_DO_DIRETORIO]
+git clone [https://github.com/MiguelAmoedo/desafio-Montink.git](https://github.com/MiguelAmoedo/desafio-Montink.git)
+cd desafio-Montink
 ```
 
 2. Instale as dependências do PHP:
