@@ -16,6 +16,10 @@
                 <input type="number" step="0.01" class="form-control" id="preco" name="preco" required>
             </div>
             <div class="mb-3">
+                <label for="estoque" class="form-label">Estoque</label>
+                <input type="number" class="form-control" id="estoque" name="estoque" required min="0">
+            </div>
+            <div class="mb-3">
                 <label for="descricao" class="form-label">Descrição</label>
                 <textarea class="form-control" id="descricao" name="descricao" rows="3" required></textarea>
             </div>
@@ -37,6 +41,7 @@
                 <tr>
                     <th>Nome</th>
                     <th>Preço</th>
+                    <th>Estoque</th>
                     <th>Status</th>
                     <th>Ações</th>
                 </tr>
@@ -107,6 +112,7 @@ function carregarProdutos() {
                 html += `<tr>
                     <td>${produto.nome}</td>
                     <td>R$ ${produto.preco}</td>
+                    <td>${produto.estoque}</td>
                     <td>${produto.ativo ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}</td>
                     <td>
                         <button class="btn btn-success btn-sm" onclick="adicionarAoCarrinho(${produto.id}, '${produto.nome}', ${produto.preco})">
@@ -164,6 +170,7 @@ formProduto.addEventListener('submit', function(e) {
     const data = {
         nome: formProduto.nome.value,
         preco: formProduto.preco.value,
+        estoque: formProduto.estoque.value,
         descricao: formProduto.descricao.value,
         ativo: formProduto.ativo.checked
     };

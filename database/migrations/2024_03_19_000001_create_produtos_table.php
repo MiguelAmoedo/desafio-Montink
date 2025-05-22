@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('nome');
             $table->decimal('preco', 10, 2);
             $table->text('descricao');
+            $table->integer('estoque')->default(0);
             $table->boolean('ativo')->default(true);
             $table->timestamps();
         });

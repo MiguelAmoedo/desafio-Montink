@@ -13,11 +13,13 @@ class Produto extends Model
         'nome',
         'preco',
         'descricao',
+        'estoque',
         'ativo'
     ];
 
     protected $casts = [
         'preco' => 'decimal:2',
+        'estoque' => 'integer',
         'ativo' => 'boolean'
     ];
 
