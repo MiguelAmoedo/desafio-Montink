@@ -85,7 +85,7 @@ O sistema já estará configurado com:
 
 1. Clone o repositório:
 ```bash
-git clone [https://github.com/MiguelAmoedo/desafio-Montink.git](https://github.com/MiguelAmoedo/desafio-Montink.git)
+git clone https://github.com/MiguelAmoedo/desafio-Montink.git
 cd desafio-Montink
 ```
 
