@@ -6,6 +6,29 @@ Sistema de gerenciamento de produtos, pedidos e cupons de desconto.
 
 Desenvolvido por [Miguel Amoedo](https://www.linkedin.com/in/miguel-amoedo/)
 
+## Estrutura do Banco de Dados
+
+O banco de dados pode ser criado de duas formas:
+
+### 1. Usando Migrations (Recomendado)
+```bash
+php artisan migrate
+```
+
+### 2. Usando SQL Diretamente
+O arquivo `database/schema.sql` contém todo o SQL necessário para criar o banco de dados. Você pode executá-lo diretamente no MySQL:
+
+```bash
+mysql -u seu_usuario -p < database/schema.sql
+```
+
+O schema inclui as seguintes tabelas:
+- `produtos`: Cadastro de produtos
+- `variacoes`: Variações de produtos (tamanhos, cores, etc)
+- `cupons`: Cupons de desconto
+- `pedidos`: Pedidos realizados
+- `pedido_items`: Itens de cada pedido
+
 ## Requisitos
 
 ### Com Docker

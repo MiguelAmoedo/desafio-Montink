@@ -16,7 +16,7 @@ return new class extends Migration
             $table->decimal('desconto', 10, 2)->default(0);
             $table->decimal('frete', 10, 2)->default(0);
             $table->decimal('total', 10, 2);
-            $table->foreignId('cupom_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('cupom_id')->nullable()->constrained('cupons')->nullOnDelete();
             
             // Campos de endereço
             $table->string('cep', 9);
