@@ -211,6 +211,3 @@ MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS="noreply@exemplo.com"
 MAIL_FROM_NAME="${APP_NAME}"
 ```
-
-
-
